@@ -1,73 +1,73 @@
-# srebot Foundation (Phase 1) Implementation Plan
+# srebot Foundation(第一阶段)实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给执行方的说明:** 必需子技能:使用 superpowers:subagent-driven-development(推荐)或 superpowers:executing-plans 按任务逐个实施本计划。步骤用 checkbox(`- [ ]`)语法追踪进度。
 
-**Goal:** Scaffold the Go module and implement the four foundational storage/IO modules (`config`, `memory.Store`, `session`, `persona`) with full unit tests.
+**目标:** 初始化 Go module,并实现四个基础的存储/IO 模块(`config`、`memory.Store`、`session`、`persona`),含完整单元测试。
 
-**Architecture:** Pure I/O / parsing layer. No LLM, no eino, no network. Each module is an independent, testable unit that will be composed by later phases.
+**架构:** 纯 I/O / 解析层。不引入 LLM、不依赖 eino、无网络调用。每个模块独立、可测试,供后续阶段组装。
 
-**Tech Stack:** Go 1.22+, `gopkg.in/yaml.v3`, Go standard library (`log/slog`, `testing`), `github.com/stretchr/testify`.
+**技术栈:** Go 1.22+、`gopkg.in/yaml.v3`、Go 标准库(`log/slog`、`testing`)、`github.com/stretchr/testify`。
 
-**Scope:** Phase 1 of 3. Phase 2 (skills + approval + tools + mcp + provider) and Phase 3 (Consolidator + agent + CLI + E2E) follow.
+**范围:** 3 个阶段中的第 1 个。第 2 阶段(skills + approval + tools + mcp + provider)与第 3 阶段(Consolidator + agent + CLI + E2E)随后。
 
-**Spec reference:** `docs/superpowers/specs/2026-04-23-srebot-mvp-design.md` sections §5.1, §5.3, §5.5 (Store only), §5.6.
+**Spec 引用:** `docs/superpowers/specs/2026-04-23-srebot-mvp-design.md` 的 §5.1、§5.3、§5.5(仅 Store)、§5.6。
 
 ---
 
-## File Structure
+## 文件结构
 
-**New files (create in this phase):**
+**本阶段新建文件:**
 
 ```
 srebot/
 ├── go.mod                              # module init
-├── go.sum                              # deps lock
+├── go.sum                              # 依赖 lock
 ├── config/
-│   ├── config.go                       # structs + Validate()
-│   ├── loader.go                       # Load(): flag > env > file > defaults + ${VAR} interpolation
-│   ├── config.example.yaml             # user-facing sample
+│   ├── config.go                       # 结构体 + Validate()
+│   ├── loader.go                       # Load():flag > env > file > defaults + ${VAR} 插值
+│   ├── config.example.yaml             # 用户样例
 │   ├── config_test.go
 │   └── loader_test.go
 ├── internal/
 │   ├── memory/
-│   │   ├── store.go                    # MemoryStore: MEMORY.md + history.jsonl + cursors
+│   │   ├── store.go                    # MemoryStore:MEMORY.md + history.jsonl + 游标
 │   │   └── store_test.go
 │   ├── session/
 │   │   ├── session.go                  # session.jsonl append/load
 │   │   └── session_test.go
 │   └── persona/
-│       ├── loader.go                   # 4 MD loader
+│       ├── loader.go                   # 四 MD 加载器
 │       └── loader_test.go
 └── .gitignore
 ```
 
 ---
 
-## Task 1: Module Scaffolding
+## 任务 1:Module 初始化
 
-**Files:**
-- Create: `go.mod`, `.gitignore`
+**文件:**
+- 新建:`go.mod`、`.gitignore`
 
-- [ ] **Step 1: Initialize Go module**
+- [ ] **步骤 1:初始化 Go module**
 
-Run (cwd=`/Users/fengjin/Desktop/GitHub/srebot`):
+执行(cwd=`/Users/fengjin/Desktop/GitHub/srebot`):
 ```bash
 go mod init github.com/fengjinjin/srebot
 ```
-Expected: creates `go.mod` with `module github.com/fengjinjin/srebot` and `go 1.22`.
+预期:生成 `go.mod`,内容为 `module github.com/fengjinjin/srebot` 及 `go 1.22`。
 
-- [ ] **Step 2: Add core deps**
+- [ ] **步骤 2:添加核心依赖**
 
-Run:
+执行:
 ```bash
 go get gopkg.in/yaml.v3@latest
 go get github.com/stretchr/testify@latest
 ```
-Expected: `go.sum` created, `go.mod` gains `require` block.
+预期:生成 `go.sum`,`go.mod` 增加 `require` 段。
 
-- [ ] **Step 3: Create `.gitignore`**
+- [ ] **步骤 3:创建 `.gitignore`**
 
-Create `/Users/fengjin/Desktop/GitHub/srebot/.gitignore`:
+新建 `/Users/fengjin/Desktop/GitHub/srebot/.gitignore`:
 ```
 # build
 /srebot
@@ -89,7 +89,7 @@ coverage.out
 ~/.srebot/
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **步骤 4:提交**
 
 ```bash
 git add go.mod go.sum .gitignore
@@ -98,13 +98,13 @@ git commit -m "chore: init go module and gitignore"
 
 ---
 
-## Task 2: config package — structs and defaults
+## 任务 2:config 包 — 结构体与默认值
 
-**Files:**
-- Create: `config/config.go`
-- Test: `config/config_test.go`
+**文件:**
+- 新建:`config/config.go`
+- 测试:`config/config_test.go`
 
-- [ ] **Step 1: Write failing test** — create `config/config_test.go`:
+- [ ] **步骤 1:写失败测试** — 新建 `config/config_test.go`:
 
 ```go
 package config
@@ -152,17 +152,17 @@ func TestValidate_OKWhenMinimalFieldsSet(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test, expect failure**
+- [ ] **步骤 2:运行测试,确认失败**
 
 ```bash
 go test ./config/...
 ```
-Expected: `undefined: Defaults` / `undefined: Config`.
+预期:`undefined: Defaults` / `undefined: Config`。
 
-- [ ] **Step 3: Write `config/config.go`**
+- [ ] **步骤 3:编写 `config/config.go`**
 
 ```go
-// Package config defines and loads srebot runtime configuration.
+// Package config 定义并加载 srebot 运行时配置。
 package config
 
 import (
@@ -171,7 +171,7 @@ import (
 	"strings"
 )
 
-// Config is the fully-resolved runtime configuration.
+// Config 是合并后的完整运行时配置。
 type Config struct {
 	Provider  ProviderConfig  `yaml:"provider"`
 	Workspace string          `yaml:"workspace"`
@@ -181,42 +181,42 @@ type Config struct {
 	Logging   LoggingConfig   `yaml:"logging"`
 }
 
-// ProviderConfig is the OpenAI-compatible endpoint config.
+// ProviderConfig 是 OpenAI-compatible endpoint 配置。
 type ProviderConfig struct {
-	BaseURL    string  `yaml:"base_url"`
-	APIKey     string  `yaml:"api_key"`
-	Model      string  `yaml:"model"`
+	BaseURL     string  `yaml:"base_url"`
+	APIKey      string  `yaml:"api_key"`
+	Model       string  `yaml:"model"`
 	Temperature float64 `yaml:"temperature"`
-	TimeoutSec int     `yaml:"timeout_sec"`
+	TimeoutSec  int     `yaml:"timeout_sec"`
 }
 
-// MemoryConfig tunes the memory subsystem.
+// MemoryConfig 调整 memory 子系统参数。
 type MemoryConfig struct {
 	ContextWindowTokens int `yaml:"context_window_tokens"`
 	MaxHistoryEntries   int `yaml:"max_history_entries"`
 }
 
-// ApprovalConfig tunes tool-call approval behavior.
+// ApprovalConfig 调整工具调用审批行为。
 type ApprovalConfig struct {
 	YOLO                bool     `yaml:"yolo"`
 	ReadOnlyAutoApprove bool     `yaml:"read_only_auto_approve"`
 	Whitelist           []string `yaml:"whitelist"`
 }
 
-// LoggingConfig tunes logger level/format.
+// LoggingConfig 调整日志级别/格式。
 type LoggingConfig struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 }
 
-// Defaults returns a Config populated with safe defaults.
+// Defaults 返回带安全默认值的 Config。
 func Defaults() Config {
 	return Config{
 		Provider: ProviderConfig{
-			BaseURL:    "https://api.openai.com/v1",
-			Model:      "gpt-4o-mini",
+			BaseURL:     "https://api.openai.com/v1",
+			Model:       "gpt-4o-mini",
 			Temperature: 0.2,
-			TimeoutSec: 120,
+			TimeoutSec:  120,
 		},
 		Workspace: "~/.srebot/workspace",
 		PresetDir: "presets/default",
@@ -236,7 +236,7 @@ func Defaults() Config {
 	}
 }
 
-// Validate returns an error if required fields are missing or out of range.
+// Validate 在必填字段缺失或越界时返回 error。
 func (c *Config) Validate() error {
 	var errs []string
 	if strings.TrimSpace(c.Provider.APIKey) == "" {
@@ -263,18 +263,18 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// ErrMissingEnv is returned when ${VAR} interpolation cannot resolve.
+// ErrMissingEnv 在 ${VAR} 插值找不到环境变量时返回。
 var ErrMissingEnv = errors.New("missing environment variable")
 ```
 
-- [ ] **Step 4: Run test, expect pass**
+- [ ] **步骤 4:运行测试,确认通过**
 
 ```bash
 go test ./config/... -v
 ```
-Expected: 4 tests PASS.
+预期:4 个测试全部 PASS。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:提交**
 
 ```bash
 git add config/
@@ -283,13 +283,13 @@ git commit -m "feat(config): Config structs, Defaults, Validate"
 
 ---
 
-## Task 3: config package — Loader with priority merge
+## 任务 3:config 包 — Loader 与优先级合并
 
-**Files:**
-- Create: `config/loader.go`, `config/config.example.yaml`
-- Test: `config/loader_test.go`
+**文件:**
+- 新建:`config/loader.go`、`config/config.example.yaml`
+- 测试:`config/loader_test.go`
 
-- [ ] **Step 1: Write failing test** — create `config/loader_test.go`:
+- [ ] **步骤 1:写失败测试** — 新建 `config/loader_test.go`:
 
 ```go
 package config
@@ -365,14 +365,14 @@ func TestLoad_BadYAMLReturnsError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test, expect failure**
+- [ ] **步骤 2:运行测试,确认失败**
 
 ```bash
 go test ./config/... -run Load
 ```
-Expected: `undefined: Load` / `undefined: Flags`.
+预期:`undefined: Load` / `undefined: Flags`。
 
-- [ ] **Step 3: Write `config/loader.go`**
+- [ ] **步骤 3:编写 `config/loader.go`**
 
 ```go
 package config
@@ -385,7 +385,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Flags is the CLI-provided override set. Empty strings mean "not set".
+// Flags 是 CLI 传入的覆盖项。空字符串视为"未设置"。
 type Flags struct {
 	ConfigPath string
 	Workspace  string
@@ -397,11 +397,10 @@ type Flags struct {
 	Resume     bool
 }
 
-// Load resolves the config with priority:
-//   flag > env (SREBOT_*) > file > defaults.
+// Load 按优先级合并配置:
+//   flag > env (SREBOT_*) > file > defaults。
 //
-// ${VAR} interpolation runs on the raw YAML before parsing; any missing
-// variable fails fast with ErrMissingEnv.
+// ${VAR} 插值在解析 YAML 前作用于原文;任何缺失变量会 fail-fast 返回 ErrMissingEnv。
 func Load(flags *Flags) (*Config, error) {
 	c := Defaults()
 
@@ -412,7 +411,7 @@ func Load(flags *Flags) (*Config, error) {
 		}
 	}
 
-	// 2. env (selected overrides)
+	// 2. env(选定的覆盖)
 	if v := os.Getenv("SREBOT_API_KEY"); v != "" {
 		c.Provider.APIKey = v
 	}
@@ -491,11 +490,11 @@ func interpolateEnv(s string) (string, error) {
 }
 ```
 
-- [ ] **Step 4: Create `config/config.example.yaml`**
+- [ ] **步骤 4:创建 `config/config.example.yaml`**
 
 ```yaml
-# srebot configuration. Copy to ~/.srebot/config.yaml or pass --config.
-# ${VAR} placeholders are resolved from environment; missing vars fail fast.
+# srebot 配置文件样例。复制到 ~/.srebot/config.yaml 或使用 --config 指定。
+# ${VAR} 占位符从环境变量解析;缺失变量会在启动时 fail-fast。
 
 provider:
   base_url: https://api.openai.com/v1
@@ -521,14 +520,14 @@ logging:
   format: text    # text|json
 ```
 
-- [ ] **Step 5: Run tests, expect pass**
+- [ ] **步骤 5:运行测试,确认通过**
 
 ```bash
 go test ./config/... -v
 ```
-Expected: all tests PASS.
+预期:全部测试 PASS。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6:提交**
 
 ```bash
 git add config/
@@ -537,13 +536,13 @@ git commit -m "feat(config): Load with priority flag>env>file>defaults + \${VAR}
 
 ---
 
-## Task 4: memory.Store — MEMORY.md read
+## 任务 4:memory.Store — ReadMemory
 
-**Files:**
-- Create: `internal/memory/store.go`
-- Test: `internal/memory/store_test.go`
+**文件:**
+- 新建:`internal/memory/store.go`
+- 测试:`internal/memory/store_test.go`
 
-- [ ] **Step 1: Write failing test** — create `internal/memory/store_test.go`:
+- [ ] **步骤 1:写失败测试** — 新建 `internal/memory/store_test.go`:
 
 ```go
 package memory
@@ -589,18 +588,18 @@ func TestReadMemory_ExistingFileReturnsContent(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run, expect failure**
+- [ ] **步骤 2:运行,确认失败**
 
 ```bash
 go test ./internal/memory/...
 ```
-Expected: `undefined: NewStore`.
+预期:`undefined: NewStore`。
 
-- [ ] **Step 3: Write `internal/memory/store.go`**
+- [ ] **步骤 3:编写 `internal/memory/store.go`**
 
 ```go
-// Package memory provides the MEMORY.md long-term facts store and the
-// history.jsonl append-only compressed-entry log with monotonic cursors.
+// Package memory 提供 MEMORY.md 长期事实存储、history.jsonl 压缩条目 append-only 日志
+// 以及单调自增的游标管理。
 package memory
 
 import (
@@ -614,14 +613,14 @@ import (
 	"time"
 )
 
-// HistoryEntry is a single compressed memory record appended by the Consolidator.
+// HistoryEntry 是 Consolidator 追加的单条压缩记忆记录。
 type HistoryEntry struct {
 	Cursor    int    `json:"cursor"`
 	Timestamp string `json:"timestamp"`
 	Content   string `json:"content"`
 }
 
-// Store is the pure file-IO layer of the memory subsystem.
+// Store 是 memory 子系统的纯文件 I/O 层。
 type Store interface {
 	ReadMemory() (body string, isTemplate bool, err error)
 	AppendHistory(entry string) (cursor int, err error)
@@ -633,15 +632,15 @@ type Store interface {
 }
 
 type fsStore struct {
-	workspace    string
-	memoryDir    string
-	memoryFile   string
-	historyFile  string
-	cursorFile   string
-	dreamCursor  string
+	workspace   string
+	memoryDir   string
+	memoryFile  string
+	historyFile string
+	cursorFile  string
+	dreamCursor string
 }
 
-// NewStore creates (or opens) a Store backed by ``<workspace>/memory/``.
+// NewStore 在 ``<workspace>/memory/`` 下创建(或打开)Store。
 func NewStore(workspace string) (Store, error) {
 	dir := filepath.Join(workspace, "memory")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -657,8 +656,8 @@ func NewStore(workspace string) (Store, error) {
 	}, nil
 }
 
-// ReadMemory returns the MEMORY.md body. isTemplate is reserved for a future
-// "is this the unmodified template" check — MVP always returns false.
+// ReadMemory 返回 MEMORY.md 正文。isTemplate 预留给未来"是否为未改动模板"的判断,
+// MVP 始终返回 false。
 func (s *fsStore) ReadMemory() (string, bool, error) {
 	b, err := os.ReadFile(s.memoryFile)
 	if errors.Is(err, os.ErrNotExist) {
@@ -670,38 +669,38 @@ func (s *fsStore) ReadMemory() (string, bool, error) {
 	return string(b), false, nil
 }
 
-// (other methods added in subsequent tasks)
+// (其余方法在后续任务补充)
 
-// --- unused helpers (silence linter until later tasks wire them in) ---
+// --- 占位引用(待后续任务接入时移除) ---
 var _ = io.EOF
 var _ = json.Marshal
 var _ = strconv.Itoa
 var _ = time.Now
 ```
 
-- [ ] **Step 4: Run, expect pass**
+- [ ] **步骤 4:运行,确认通过**
 
 ```bash
 go test ./internal/memory/... -v
 ```
-Expected: 3 tests PASS.
+预期:3 个测试 PASS。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:提交**
 
 ```bash
 git add internal/memory/
-git commit -m "feat(memory): Store scaffold + ReadMemory"
+git commit -m "feat(memory): Store 脚手架 + ReadMemory"
 ```
 
 ---
 
-## Task 5: memory.Store — AppendHistory + cursor
+## 任务 5:memory.Store — AppendHistory 与游标
 
-**Files:**
-- Modify: `internal/memory/store.go`
-- Modify: `internal/memory/store_test.go`
+**文件:**
+- 修改:`internal/memory/store.go`
+- 修改:`internal/memory/store_test.go`
 
-- [ ] **Step 1: Append failing tests** — append to `internal/memory/store_test.go`:
+- [ ] **步骤 1:追加失败测试** — 向 `internal/memory/store_test.go` 尾部追加:
 
 ```go
 func TestAppendHistory_CursorMonotonic(t *testing.T) {
@@ -726,7 +725,7 @@ func TestAppendHistory_PersistsCursor(t *testing.T) {
 	_, _ = s1.AppendHistory("a")
 	_, _ = s1.AppendHistory("b")
 
-	s2, _ := NewStore(ws) // reopen
+	s2, _ := NewStore(ws) // 重新打开
 	c, err := s2.AppendHistory("c")
 	require.NoError(t, err)
 	assert.Equal(t, 3, c)
@@ -761,17 +760,17 @@ func TestDreamCursor_SetAndRead(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run, expect failure**
+- [ ] **步骤 2:运行,确认失败**
 
 ```bash
 go test ./internal/memory/...
 ```
-Expected: `*fsStore does not implement Store (missing method AppendHistory)`.
+预期:`*fsStore does not implement Store (missing method AppendHistory)`。
 
-- [ ] **Step 3: Extend `internal/memory/store.go`** — replace the "unused helpers" stub block at the end with:
+- [ ] **步骤 3:扩展 `internal/memory/store.go`** — 用以下代码替换文件末尾的"占位引用"段:
 
 ```go
-// AppendHistory appends entry to history.jsonl and returns its new cursor.
+// AppendHistory 将 entry 追加到 history.jsonl 并返回新分配的游标值。
 func (s *fsStore) AppendHistory(entry string) (int, error) {
 	c, err := s.nextCursor()
 	if err != nil {
@@ -806,7 +805,7 @@ func (s *fsStore) nextCursor() (int, error) {
 			return n + 1, nil
 		}
 	}
-	// Fallback: scan file for max cursor.
+	// 兜底:扫描文件取最大游标。
 	entries, err := s.readAllEntries()
 	if err != nil {
 		return 0, err
@@ -820,7 +819,7 @@ func (s *fsStore) nextCursor() (int, error) {
 	return max + 1, nil
 }
 
-// ReadUnprocessedHistory returns all entries with Cursor > sinceCursor.
+// ReadUnprocessedHistory 返回 Cursor > sinceCursor 的所有条目。
 func (s *fsStore) ReadUnprocessedHistory(sinceCursor int) ([]HistoryEntry, error) {
 	entries, err := s.readAllEntries()
 	if err != nil {
@@ -853,7 +852,7 @@ func (s *fsStore) readAllEntries() ([]HistoryEntry, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			// tolerate a single malformed line by skipping to newline
+			// 容忍单条破损,跳到下一行
 			continue
 		}
 		out = append(out, e)
@@ -861,7 +860,7 @@ func (s *fsStore) readAllEntries() ([]HistoryEntry, error) {
 	return out, nil
 }
 
-// LastDreamCursor returns the last dream watermark (0 if never set).
+// LastDreamCursor 返回上次 Dream 水位(未设置时为 0)。
 func (s *fsStore) LastDreamCursor() int {
 	b, err := os.ReadFile(s.dreamCursor)
 	if err != nil {
@@ -874,12 +873,12 @@ func (s *fsStore) LastDreamCursor() int {
 	return n
 }
 
-// SetLastDreamCursor persists the dream watermark.
+// SetLastDreamCursor 持久化 Dream 水位。
 func (s *fsStore) SetLastDreamCursor(c int) error {
 	return os.WriteFile(s.dreamCursor, []byte(strconv.Itoa(c)), 0o644)
 }
 
-// CompactHistory truncates history.jsonl to the newest maxEntries records.
+// CompactHistory 截断 history.jsonl 到最新 maxEntries 条。
 func (s *fsStore) CompactHistory(maxEntries int) error {
 	if maxEntries <= 0 {
 		return nil
@@ -910,22 +909,21 @@ func (s *fsStore) CompactHistory(maxEntries int) error {
 	return os.Rename(tmp, s.historyFile)
 }
 
-// RawArchive appends a raw (unsummarized) record with a [RAW] marker as a
-// fallback when Consolidator LLM calls fail.
+// RawArchive 在 Consolidator LLM 调用失败时,将原始消息以 [RAW] 前缀追加为兜底。
 func (s *fsStore) RawArchive(raw string) error {
 	_, err := s.AppendHistory("[RAW] " + raw)
 	return err
 }
 ```
 
-- [ ] **Step 4: Run tests, expect pass**
+- [ ] **步骤 4:运行测试,确认通过**
 
 ```bash
 go test ./internal/memory/... -v
 ```
-Expected: all memory tests PASS.
+预期:所有 memory 测试 PASS。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:提交**
 
 ```bash
 git add internal/memory/
@@ -934,12 +932,12 @@ git commit -m "feat(memory): AppendHistory, cursor, ReadUnprocessedHistory, drea
 
 ---
 
-## Task 6: memory.Store — CompactHistory + RawArchive tests
+## 任务 6:memory.Store — CompactHistory 与 RawArchive 测试
 
-**Files:**
-- Modify: `internal/memory/store_test.go`
+**文件:**
+- 修改:`internal/memory/store_test.go`
 
-- [ ] **Step 1: Append tests** to `internal/memory/store_test.go`:
+- [ ] **步骤 1:追加测试** 到 `internal/memory/store_test.go`:
 
 ```go
 func TestCompactHistory_KeepsNewest(t *testing.T) {
@@ -966,29 +964,29 @@ func TestRawArchive_PrefixesMarker(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run, expect pass**
+- [ ] **步骤 2:运行,确认通过**
 
 ```bash
 go test ./internal/memory/... -v
 ```
-Expected: all PASS (implementation already present from Task 5).
+预期:全部 PASS(实现已在任务 5 完成)。
 
-- [ ] **Step 3: Commit**
+- [ ] **步骤 3:提交**
 
 ```bash
 git add internal/memory/
-git commit -m "test(memory): CompactHistory and RawArchive coverage"
+git commit -m "test(memory): CompactHistory 与 RawArchive 覆盖"
 ```
 
 ---
 
-## Task 7: session — append + load
+## 任务 7:session — append + load
 
-**Files:**
-- Create: `internal/session/session.go`
-- Test: `internal/session/session_test.go`
+**文件:**
+- 新建:`internal/session/session.go`
+- 测试:`internal/session/session_test.go`
 
-- [ ] **Step 1: Write failing test** — create `internal/session/session_test.go`:
+- [ ] **步骤 1:写失败测试** — 新建 `internal/session/session_test.go`:
 
 ```go
 package session
@@ -1046,7 +1044,7 @@ func TestLoad_TruncatedLastLineDropped(t *testing.T) {
 	require.NoError(t, s.Append(Message{Role: "user", Content: "ok"}))
 	require.NoError(t, s.Close())
 
-	// simulate a partial write
+	// 模拟部分写入(断电/崩溃)
 	path := filepath.Join(ws, "session", "sid.jsonl")
 	appendRaw(t, path, `{"role":"assistant","content":"partial`)
 
@@ -1059,12 +1057,21 @@ func TestLoad_TruncatedLastLineDropped(t *testing.T) {
 }
 ```
 
-Add helper at the bottom of the same file:
+再在同包下新建 `internal/session/testhelpers_test.go`:
 
 ```go
+package session
+
+import (
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
 func appendRaw(t *testing.T, path, data string) {
 	t.Helper()
-	f, err := osOpenFileAppend(path)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	require.NoError(t, err)
 	defer f.Close()
 	_, err = f.WriteString(data)
@@ -1072,31 +1079,18 @@ func appendRaw(t *testing.T, path, data string) {
 }
 ```
 
-...then create `internal/session/testhelpers_test.go`:
-
-```go
-package session
-
-import "os"
-
-func osOpenFileAppend(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-}
-```
-
-- [ ] **Step 2: Run, expect failure**
+- [ ] **步骤 2:运行,确认失败**
 
 ```bash
 go test ./internal/session/...
 ```
-Expected: `undefined: Open` / `undefined: Message`.
+预期:`undefined: Open` / `undefined: Message`。
 
-- [ ] **Step 3: Write `internal/session/session.go`**
+- [ ] **步骤 3:编写 `internal/session/session.go`**
 
 ```go
-// Package session provides append-only storage for raw agent message history
-// (session.jsonl).  It is the source-of-truth log (unlike memory.history.jsonl
-// which holds compressed summaries).
+// Package session 为 agent 原始消息历史(session.jsonl)提供 append-only 存储。
+// 它是"source-of-truth"日志(与 memory.history.jsonl 不同,后者存压缩摘要)。
 package session
 
 import (
@@ -1110,8 +1104,8 @@ import (
 	"path/filepath"
 )
 
-// Message is the minimal shape persisted per turn.  The agent layer may
-// enrich this later by embedding richer fields; forward-compat is by JSON.
+// Message 是每轮持久化的最小结构体。
+// 后续 agent 层可通过 JSON 向前兼容地扩展字段。
 type Message struct {
 	Role       string          `json:"role"`
 	Content    string          `json:"content"`
@@ -1121,7 +1115,7 @@ type Message struct {
 	Timestamp  string          `json:"timestamp,omitempty"`
 }
 
-// Session persists and restores an ordered message stream under a session id.
+// Session 按 session id 持久化并恢复有序消息流。
 type Session interface {
 	ID() string
 	Append(msg Message) error
@@ -1135,8 +1129,8 @@ type fsSession struct {
 	f    *os.File
 }
 
-// Open returns a Session for the given id; if id is "", a new random id is
-// generated.  The session.jsonl file is created on first Append if absent.
+// Open 返回给定 id 的 Session;id 为 "" 时生成随机 id。
+// session.jsonl 文件在第一次 Append 时按需创建。
 func Open(workspace, id string) (Session, error) {
 	dir := filepath.Join(workspace, "session")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -1175,8 +1169,7 @@ func (s *fsSession) Append(msg Message) error {
 	return nil
 }
 
-// Load reads all complete JSON lines. A truncated trailing line is silently
-// dropped (crash-recovery behavior).
+// Load 读取所有完整 JSON 行。最后一行若被截断则静默丢弃(崩溃恢复)。
 func (s *fsSession) Load() ([]Message, error) {
 	f, err := os.Open(s.path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -1197,7 +1190,7 @@ func (s *fsSession) Load() ([]Message, error) {
 		}
 		var m Message
 		if err := json.Unmarshal(line, &m); err != nil {
-			// skip malformed / partial line (last-line truncation case)
+			// 跳过畸形/部分写入行(最后一行被截断的情况)
 			continue
 		}
 		out = append(out, m)
@@ -1218,29 +1211,29 @@ func (s *fsSession) Close() error {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass**
+- [ ] **步骤 4:运行,确认通过**
 
 ```bash
 go test ./internal/session/... -v
 ```
-Expected: 4 tests PASS.
+预期:4 个测试 PASS。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:提交**
 
 ```bash
 git add internal/session/
-git commit -m "feat(session): append-only session.jsonl with crash-recovery Load"
+git commit -m "feat(session): append-only session.jsonl + 崩溃恢复 Load"
 ```
 
 ---
 
-## Task 8: persona — 4 MD loader
+## 任务 8:persona — 四 MD 加载器
 
-**Files:**
-- Create: `internal/persona/loader.go`
-- Test: `internal/persona/loader_test.go`
+**文件:**
+- 新建:`internal/persona/loader.go`
+- 测试:`internal/persona/loader_test.go`
 
-- [ ] **Step 1: Write failing test** — create `internal/persona/loader_test.go`:
+- [ ] **步骤 1:写失败测试** — 新建 `internal/persona/loader_test.go`:
 
 ```go
 package persona
@@ -1295,7 +1288,7 @@ func TestBootstrap_ConcatenatesInOrder(t *testing.T) {
 
 	p, _ := NewFSLoader(ws).Load()
 	boot := p.Bootstrap()
-	// order: AGENTS, SOUL, USER, TOOLS  (matches nanobot BOOTSTRAP_FILES)
+	// 顺序:AGENTS、SOUL、USER、TOOLS(对齐 nanobot BOOTSTRAP_FILES)
 	iA := indexOf(boot, "## AGENTS.md")
 	iS := indexOf(boot, "## SOUL.md")
 	iU := indexOf(boot, "## USER.md")
@@ -1307,7 +1300,7 @@ func TestBootstrap_ConcatenatesInOrder(t *testing.T) {
 func TestBootstrap_SkipsEmptyFiles(t *testing.T) {
 	ws := t.TempDir()
 	writeFile(t, ws, "SOUL.md", "has-content")
-	// others missing
+	// 其他缺失
 
 	p, _ := NewFSLoader(ws).Load()
 	boot := p.Bootstrap()
@@ -1325,20 +1318,19 @@ func indexOf(s, sub string) int {
 }
 ```
 
-- [ ] **Step 2: Run, expect failure**
+- [ ] **步骤 2:运行,确认失败**
 
 ```bash
 go test ./internal/persona/...
 ```
-Expected: `undefined: NewFSLoader`.
+预期:`undefined: NewFSLoader`。
 
-- [ ] **Step 3: Write `internal/persona/loader.go`**
+- [ ] **步骤 3:编写 `internal/persona/loader.go`**
 
 ```go
-// Package persona loads the four Markdown files that define a srebot agent's
-// identity (SOUL), instructions (AGENTS), user profile (USER), and tool
-// guidance (TOOLS).  Every turn rebuilds the system prompt from these files
-// so edits are picked up immediately.
+// Package persona 加载四个定义 srebot 人格的 Markdown 文件:
+// SOUL(个性)、AGENTS(行为指令)、USER(用户信息)、TOOLS(工具手册)。
+// 每轮对话都会重新读取这些文件以组装 system prompt,以便用户的改动立即生效。
 package persona
 
 import (
@@ -1349,7 +1341,7 @@ import (
 	"strings"
 )
 
-// Persona holds the four bootstrap file contents.  Empty string = file absent.
+// Persona 承载四个 bootstrap 文件的内容。空字符串 = 文件不存在。
 type Persona struct {
 	Soul   string
 	Agents string
@@ -1357,25 +1349,25 @@ type Persona struct {
 	Tools  string
 }
 
-// Loader is the persona reader abstraction.
+// Loader 是 persona 读取抽象。
 type Loader interface {
 	Load() (*Persona, error)
 }
 
-// BootstrapOrder matches nanobot's BOOTSTRAP_FILES ordering:
-// AGENTS first (instructions), then SOUL (personality), USER, TOOLS.
+// bootstrapOrder 与 nanobot 的 BOOTSTRAP_FILES 对齐:
+// AGENTS 优先(指令),随后 SOUL(人格)、USER、TOOLS。
 var bootstrapOrder = []string{"AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"}
 
 type fsLoader struct {
 	dir string
 }
 
-// NewFSLoader returns a Loader reading MD files from the given directory.
+// NewFSLoader 返回从给定目录读取 MD 文件的 Loader。
 func NewFSLoader(workspaceDir string) Loader {
 	return &fsLoader{dir: workspaceDir}
 }
 
-// Load reads all four files; missing files map to empty strings, not errors.
+// Load 读取全部四个文件;缺失文件映射为空字符串而非 error。
 func (l *fsLoader) Load() (*Persona, error) {
 	p := &Persona{}
 	m := map[string]*string{
@@ -1397,9 +1389,8 @@ func (l *fsLoader) Load() (*Persona, error) {
 	return p, nil
 }
 
-// Bootstrap concatenates all present files as Markdown sections, ordered
-// per bootstrapOrder.  Empty files are skipped.  Returns "" when no files
-// are present.
+// Bootstrap 将存在的文件按 bootstrapOrder 顺序拼成 Markdown section。
+// 空文件被跳过;全部缺失时返回 ""。
 func (p *Persona) Bootstrap() string {
 	get := map[string]string{
 		"AGENTS.md": p.Agents,
@@ -1417,51 +1408,51 @@ func (p *Persona) Bootstrap() string {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass**
+- [ ] **步骤 4:运行,确认通过**
 
 ```bash
 go test ./internal/persona/... -v
 ```
-Expected: 4 tests PASS.
+预期:4 个测试 PASS。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:提交**
 
 ```bash
 git add internal/persona/
-git commit -m "feat(persona): 4 MD loader + Bootstrap concatenation"
+git commit -m "feat(persona): 四 MD 加载器 + Bootstrap 拼接"
 ```
 
 ---
 
-## Task 9: Coverage check + phase commit
+## 任务 9:覆盖率检查 + 阶段提交
 
-- [ ] **Step 1: Run full test suite with race + coverage**
+- [ ] **步骤 1:带 race + coverage 跑全量测试**
 
 ```bash
 go test -race -cover ./...
 ```
-Expected: all PASS. Coverage targets:
+预期:全部 PASS。覆盖率目标:
 - `config/` ≥ 90%
 - `internal/memory/` ≥ 80%
 - `internal/session/` ≥ 80%
 - `internal/persona/` ≥ 80%
 
-If any module falls below, add the missing test case before continuing.
+任一模块不达标,补充缺失测试用例后再继续。
 
-- [ ] **Step 2: Install golangci-lint if missing**
+- [ ] **步骤 2:安装 golangci-lint(若未安装)**
 
 ```bash
 which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
-- [ ] **Step 3: Lint**
+- [ ] **步骤 3:Lint**
 
 ```bash
 golangci-lint run ./...
 ```
-Expected: no issues. Fix any reported.
+预期:无 issue。若有报错按提示修复。
 
-- [ ] **Step 4: Tag phase milestone**
+- [ ] **步骤 4:打阶段里程碑 tag**
 
 ```bash
 git tag -a v0.1.0-phase1 -m "Phase 1 foundation: config, memory.Store, session, persona"
@@ -1469,8 +1460,8 @@ git tag -a v0.1.0-phase1 -m "Phase 1 foundation: config, memory.Store, session, 
 
 ---
 
-## Out of Phase 1 scope (next phases)
+## 超出第一阶段范围(下阶段再做)
 
-**Phase 2:** `skills`, `approval`, `tools` (builtin + Registry), `mcp`, `provider` (ChatModel abstraction + openai impl).
+**第二阶段:** `skills`、`approval`、`tools`(builtin + Registry)、`mcp`、`provider`(ChatModel 抽象 + openai 实现)。
 
-**Phase 3:** `memory.Consolidator`, `internal/agent` (eino Graph), `cmd/srebot` CLI + REPL, E2E tests.
+**第三阶段:** `memory.Consolidator`、`internal/agent`(eino Graph)、`cmd/srebot` CLI + REPL、E2E 测试。
