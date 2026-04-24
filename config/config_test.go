@@ -104,3 +104,99 @@ func TestValidate_ReportsAllMissingFields(t *testing.T) {
 		}
 	}
 }
+
+func baseValidResolved() Resolved {
+	res := Defaults().Resolve()
+	res.Agent.APIKey = "sk-test"
+	return res
+}
+
+func TestValidate_MCPServer_HTTPOK(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"remote": {URL: "https://example.com/mcp", ToolTimeout: 30},
+	}
+	if err := res.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.MCPServers["remote"].ToolTimeout != 30 {
+		t.Errorf("ToolTimeout mutated unexpectedly: %d", res.MCPServers["remote"].ToolTimeout)
+	}
+}
+
+func TestValidate_MCPServer_StdioOK(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"local": {Command: "mcp-server", Args: []string{"--foo"}, Env: map[string]string{"K": "V"}, ToolTimeout: 10},
+	}
+	if err := res.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MCPServer_BothEmpty(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{"x": {ToolTimeout: 10}}
+	err := res.Validate()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !containsStr(err.Error(), "must set either url or command") {
+		t.Errorf("unexpected err: %v", err)
+	}
+}
+
+func TestValidate_MCPServer_BothSet(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"x": {URL: "https://a", Command: "b", ToolTimeout: 10},
+	}
+	err := res.Validate()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !containsStr(err.Error(), "mutually exclusive") {
+		t.Errorf("unexpected err: %v", err)
+	}
+}
+
+func TestValidate_MCPServer_BadURL(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"x": {URL: "ftp://nope", ToolTimeout: 10},
+	}
+	err := res.Validate()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !containsStr(err.Error(), "http://") {
+		t.Errorf("unexpected err: %v", err)
+	}
+}
+
+func TestValidate_MCPServer_DefaultTimeout(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"x": {URL: "https://a/mcp"},
+	}
+	if err := res.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := res.MCPServers["x"].ToolTimeout; got != 60 {
+		t.Errorf("ToolTimeout = %d, want 60", got)
+	}
+}
+
+func TestValidate_MCPServer_NegativeTimeout(t *testing.T) {
+	res := baseValidResolved()
+	res.MCPServers = map[string]MCPServer{
+		"x": {URL: "https://a/mcp", ToolTimeout: -1},
+	}
+	err := res.Validate()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !containsStr(err.Error(), "toolTimeout") {
+		t.Errorf("unexpected err: %v", err)
+	}
+}

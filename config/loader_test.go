@@ -184,3 +184,42 @@ func TestLoad_TildePrefixWithoutSlashUnchanged(t *testing.T) {
 		t.Errorf("Workspace = %q", res.Agent.Workspace)
 	}
 }
+
+func TestLoad_WithMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	p := writeFile(t, dir, "c.json", `{
+  "agents": { "defaults": { "apiKey": "sk-x" } },
+  "mcpServers": {
+    "remote": { "url": "https://example.com/mcp", "toolTimeout": 15 },
+    "local":  { "command": "mcp-bin", "args": ["--x"], "env": { "K": "V" } }
+  }
+}`)
+	res, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(res.MCPServers) != 2 {
+		t.Fatalf("expected 2 mcp servers, got %d", len(res.MCPServers))
+	}
+	remote := res.MCPServers["remote"]
+	if remote.URL != "https://example.com/mcp" {
+		t.Errorf("remote.URL = %q", remote.URL)
+	}
+	if remote.ToolTimeout != 15 {
+		t.Errorf("remote.ToolTimeout = %d", remote.ToolTimeout)
+	}
+	local := res.MCPServers["local"]
+	if local.Command != "mcp-bin" {
+		t.Errorf("local.Command = %q", local.Command)
+	}
+	if len(local.Args) != 1 || local.Args[0] != "--x" {
+		t.Errorf("local.Args = %v", local.Args)
+	}
+	if local.Env["K"] != "V" {
+		t.Errorf("local.Env[K] = %q", local.Env["K"])
+	}
+	// default timeout for local since it wasn't specified
+	if local.ToolTimeout != 60 {
+		t.Errorf("local.ToolTimeout = %d, want 60", local.ToolTimeout)
+	}
+}

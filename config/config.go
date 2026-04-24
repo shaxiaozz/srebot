@@ -15,10 +15,21 @@ import (
 
 // Root 映射 config.json 顶层结构。
 type Root struct {
-	Agents   AgentsSection  `json:"agents"`
-	Approval ApprovalConfig `json:"approval"`
-	Logging  LoggingConfig  `json:"logging"`
-	Memory   MemoryConfig   `json:"memory"`
+	Agents     AgentsSection        `json:"agents"`
+	Approval   ApprovalConfig       `json:"approval"`
+	Logging    LoggingConfig        `json:"logging"`
+	Memory     MemoryConfig         `json:"memory"`
+	MCPServers map[string]MCPServer `json:"mcpServers,omitempty"`
+}
+
+// MCPServer 描述单个 MCP server 的连接配置。url 与 command 二选一:
+// 设置 url 走 Streamable HTTP transport;设置 command/args/env 走 stdio transport。
+type MCPServer struct {
+	URL         string            `json:"url,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Args        []string          `json:"args,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	ToolTimeout int               `json:"toolTimeout,omitempty"`
 }
 
 // AgentsSection 对齐 nanobot 的 agents.{defaults,<name>} 嵌套。
@@ -62,10 +73,11 @@ type MemoryConfig struct {
 
 // Resolved 是合并后供下游组件消费的平面结构。
 type Resolved struct {
-	Agent    AgentConfig
-	Approval ApprovalConfig
-	Logging  LoggingConfig
-	Memory   MemoryConfig
+	Agent      AgentConfig
+	Approval   ApprovalConfig
+	Logging    LoggingConfig
+	Memory     MemoryConfig
+	MCPServers map[string]MCPServer
 }
 
 // Defaults 返回带安全默认值的 Root。用于填充 JSON 缺失字段。
@@ -103,10 +115,11 @@ func Defaults() Root {
 // Resolve 把 Root 展平成 Resolved。MVP 只使用 agents.defaults。
 func (r Root) Resolve() Resolved {
 	return Resolved{
-		Agent:    r.Agents.Defaults,
-		Approval: r.Approval,
-		Logging:  r.Logging,
-		Memory:   r.Memory,
+		Agent:      r.Agents.Defaults,
+		Approval:   r.Approval,
+		Logging:    r.Logging,
+		Memory:     r.Memory,
+		MCPServers: r.MCPServers,
 	}
 }
 
@@ -134,6 +147,26 @@ func (r *Resolved) Validate() error {
 	}
 	if r.Memory.MaxHistoryEntries <= 0 {
 		errs = append(errs, "memory.maxHistoryEntries must be > 0")
+	}
+	for name, srv := range r.MCPServers {
+		hasURL := strings.TrimSpace(srv.URL) != ""
+		hasCmd := strings.TrimSpace(srv.Command) != ""
+		switch {
+		case !hasURL && !hasCmd:
+			errs = append(errs, fmt.Sprintf("mcp server %q: must set either url or command", name))
+		case hasURL && hasCmd:
+			errs = append(errs, fmt.Sprintf("mcp server %q: url and command are mutually exclusive", name))
+		case hasURL:
+			if !strings.HasPrefix(srv.URL, "http://") && !strings.HasPrefix(srv.URL, "https://") {
+				errs = append(errs, fmt.Sprintf("mcp server %q: url must start with http:// or https://", name))
+			}
+		}
+		if srv.ToolTimeout < 0 {
+			errs = append(errs, fmt.Sprintf("mcp server %q: toolTimeout must be >= 0", name))
+		} else if srv.ToolTimeout == 0 {
+			srv.ToolTimeout = 60
+			r.MCPServers[name] = srv
+		}
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config invalid: %s", strings.Join(errs, "; "))
