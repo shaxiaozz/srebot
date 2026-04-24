@@ -4,4 +4,18 @@ docs/superpowers/
 CLAUDE.md
 .idea/
 .vscode/
+*.swp
+.DS_Store
 
+# build
+/srebot
+/bin/
+/dist/
+
+# test
+coverage.out
+*.test
+
+# runtime
+/tmp/
+~/.srebot/
