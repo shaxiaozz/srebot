@@ -40,7 +40,7 @@ type fsStore struct {
 	dreamCursor string
 }
 
-// NewStore 在 ``<workspace>/memory/`` 下创建(或打开)Store。
+// NewStore 在 “<workspace>/memory/“ 下创建(或打开)Store。
 func NewStore(workspace string) (Store, error) {
 	dir := filepath.Join(workspace, "memory")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
