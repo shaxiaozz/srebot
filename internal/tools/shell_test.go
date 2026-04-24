@@ -99,9 +99,9 @@ func TestShell_Timeout(t *testing.T) {
 	if !strings.Contains(result, "exit=124") {
 		t.Errorf("result should contain 'exit=124' for timeout, got: %v", result)
 	}
-	// Should complete in roughly 1-2 seconds, not 5
-	if elapsed > 5*time.Second {
-		t.Errorf("command should timeout around 1 second, but took %v", elapsed)
+	// Verify timeout fired: should be between ~500ms and ~3s, not 5s (which would mean no timeout)
+	if elapsed < 500*time.Millisecond || elapsed > 3*time.Second {
+		t.Errorf("timeout should fire ~1s, got %v", elapsed)
 	}
 }
 
