@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -108,4 +109,51 @@ func TestConcurrentRegisterGet(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+// flakyStub succeeds on the first Info call (used by Register) and returns an
+// error on every subsequent call (used by Definitions).
+type flakyStub struct {
+	name      string
+	infoCalls int
+}
+
+func (f *flakyStub) Info(_ context.Context) (*schema.ToolInfo, error) {
+	f.infoCalls++
+	if f.infoCalls > 1 {
+		return nil, errors.New("info failed")
+	}
+	return &schema.ToolInfo{Name: f.name, Desc: "flaky"}, nil
+}
+
+func (f *flakyStub) InvokableRun(_ context.Context, _ string, _ ...tool.Option) (string, error) {
+	return "", nil
+}
+
+// TestDefinitions_InfoError verifies that Definitions propagates an Info error.
+func TestDefinitions_InfoError(t *testing.T) {
+	r := NewRegistry()
+
+	if err := r.Register(&flakyStub{name: "x"}); err != nil {
+		t.Fatalf("Register: unexpected error: %v", err)
+	}
+
+	infos, err := r.Definitions(context.Background())
+	if err == nil {
+		t.Fatal("Definitions: expected error, got nil")
+	}
+	if infos != nil {
+		t.Errorf("Definitions: expected nil slice on error, got %v", infos)
+	}
+}
+
+// TestUnregister_NonExistent verifies that Unregister is a no-op for unknown names.
+func TestUnregister_NonExistent(t *testing.T) {
+	r := NewRegistry()
+
+	r.Unregister("does-not-exist") // must not panic
+
+	if _, ok := r.Get("does-not-exist"); ok {
+		t.Error("Get: expected false for never-registered tool")
+	}
 }
