@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"unicode/utf8"
 
@@ -38,17 +39,18 @@ func (r *readFileTool) InvokableRun(_ context.Context, argsJSON string, _ ...too
 		return "", err
 	}
 
-	info, err := os.Stat(resolved)
+	f, err := os.Open(resolved)
 	if err != nil {
 		return "", fmt.Errorf("read_file: %w", err)
 	}
-	if info.Size() > maxReadSize {
-		return "", fmt.Errorf("read_file: file too large (>1MiB)")
-	}
+	defer f.Close()
 
-	data, err := os.ReadFile(resolved)
+	data, err := io.ReadAll(io.LimitReader(f, maxReadSize+1))
 	if err != nil {
 		return "", fmt.Errorf("read_file: %w", err)
+	}
+	if int64(len(data)) > maxReadSize {
+		return "", fmt.Errorf("read_file: file too large (>1MiB)")
 	}
 	if !utf8.Valid(data) {
 		return "", fmt.Errorf("read_file: file is not valid UTF-8")

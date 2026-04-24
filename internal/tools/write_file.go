@@ -25,7 +25,7 @@ func (w *writeFileTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	}, nil
 }
 
-func (w *writeFileTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
+func (w *writeFileTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (_ string, err error) {
 	var a struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
@@ -53,7 +53,11 @@ func (w *writeFileTool) InvokableRun(_ context.Context, argsJSON string, _ ...to
 	if err != nil {
 		return "", fmt.Errorf("write_file: failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("write_file: close failed: %w", cerr)
+		}
+	}()
 
 	n, err := f.WriteString(a.Content)
 	if err != nil {

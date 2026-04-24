@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -10,8 +11,10 @@ func TestResolveInsideWorkspace_OK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got == "" {
-		t.Fatal("expected non-empty path")
+	wsReal, _ := filepath.EvalSymlinks(ws)
+	want := filepath.Join(wsReal, "foo/bar.txt")
+	if got != want {
+		t.Fatalf("want %q, got %q", want, got)
 	}
 }
 

@@ -106,3 +106,21 @@ func TestWriteFile_ToolName(t *testing.T) {
 		t.Errorf("want name %q, got %q", "write_file", info.Name)
 	}
 }
+
+func TestWriteFile_Overwrite(t *testing.T) {
+	ws := t.TempDir()
+	if _, err := invokeWriteFile(t, ws, "over.txt", "original", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := invokeWriteFile(t, ws, "over.txt", "new", false); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(ws, "over.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new" {
+		t.Errorf("want %q, got %q", "new", string(data))
+	}
+}
