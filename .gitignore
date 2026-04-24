@@ -1,1 +1,7 @@
+# Editors & IDEs (local workspace / user settings)
 docs/superpowers/
+.claude
+CLAUDE.md
+.idea/
+.vscode/
+
