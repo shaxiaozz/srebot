@@ -90,3 +90,17 @@ func containsStr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestValidate_ReportsAllMissingFields(t *testing.T) {
+	res := Resolved{}
+	err := res.Validate()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	for _, want := range []string{"apiKey", "baseUrl", "model", "provider", "timeoutSec", "contextWindowTokens", "maxHistoryEntries"} {
+		if !containsStr(msg, want) {
+			t.Errorf("err missing %q: %s", want, msg)
+		}
+	}
+}

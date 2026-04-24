@@ -175,3 +175,63 @@ func TestRawArchive_PrefixesMarker(t *testing.T) {
 		t.Errorf("content = %q", entries[0].Content)
 	}
 }
+
+func TestCompactHistory_ZeroOrNegativeNoOp(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	for i := 0; i < 3; i++ {
+		_, _ = s.AppendHistory("x")
+	}
+	if err := s.CompactHistory(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompactHistory(-1); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := s.ReadUnprocessedHistory(0)
+	if len(entries) != 3 {
+		t.Errorf("entries = %d, want 3", len(entries))
+	}
+}
+
+func TestCompactHistory_UnderThresholdNoOp(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	for i := 0; i < 2; i++ {
+		_, _ = s.AppendHistory("x")
+	}
+	if err := s.CompactHistory(5); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := s.ReadUnprocessedHistory(0)
+	if len(entries) != 2 {
+		t.Errorf("entries = %d, want 2", len(entries))
+	}
+}
+
+func TestNextCursor_FallbackWhenCursorFileCorrupt(t *testing.T) {
+	ws := t.TempDir()
+	s, _ := NewStore(ws)
+	_, _ = s.AppendHistory("first")
+	_, _ = s.AppendHistory("second")
+	// 破坏 .cursor 文件,迫使走兜底扫描路径
+	if err := os.WriteFile(filepath.Join(ws, "memory", ".cursor"), []byte("not-a-number"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.AppendHistory("third")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != 3 {
+		t.Errorf("cursor = %d, want 3 (fallback scan)", c)
+	}
+}
+
+func TestLastDreamCursor_CorruptFileReturnsZero(t *testing.T) {
+	ws := t.TempDir()
+	s, _ := NewStore(ws)
+	if err := os.WriteFile(filepath.Join(ws, "memory", ".dream_cursor"), []byte("garbage"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.LastDreamCursor(); got != 0 {
+		t.Errorf("LastDreamCursor = %d, want 0", got)
+	}
+}

@@ -140,3 +140,47 @@ func TestLoad_ExpandsTildeInWorkspace(t *testing.T) {
 		t.Errorf("Workspace = %q, want %q", res.Agent.Workspace, want)
 	}
 }
+
+func TestLoad_ExpandsBareTilde(t *testing.T) {
+	dir := t.TempDir()
+	p := writeFile(t, dir, "c.json", `{
+  "agents": { "defaults": { "apiKey": "sk-x", "workspace": "~" } }
+}`)
+	res, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	home, _ := os.UserHomeDir()
+	if res.Agent.Workspace != home {
+		t.Errorf("Workspace = %q, want %q", res.Agent.Workspace, home)
+	}
+}
+
+func TestLoad_NonTildePathUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	p := writeFile(t, dir, "c.json", `{
+  "agents": { "defaults": { "apiKey": "sk-x", "workspace": "/tmp/ws" } }
+}`)
+	res, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if res.Agent.Workspace != "/tmp/ws" {
+		t.Errorf("Workspace = %q", res.Agent.Workspace)
+	}
+}
+
+func TestLoad_TildePrefixWithoutSlashUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	p := writeFile(t, dir, "c.json", `{
+  "agents": { "defaults": { "apiKey": "sk-x", "workspace": "~alice/ws" } }
+}`)
+	res, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// "~alice/ws" 不匹配 "~" 或 "~/" 前缀,保持原样
+	if res.Agent.Workspace != "~alice/ws" {
+		t.Errorf("Workspace = %q", res.Agent.Workspace)
+	}
+}
