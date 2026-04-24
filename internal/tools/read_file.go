@@ -21,7 +21,7 @@ func (r *readFileTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 		Name: "read_file",
 		Desc: "Read a UTF-8 text file from the agent workspace. Path must be relative to workspace root.",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
-			"path": {Type: schema.String, Desc: "relative path inside workspace", Required: true},
+			"path": {Type: schema.String, Desc: "relative path inside workspace (must be relative to workspace root)", Required: true},
 		}),
 	}, nil
 }
